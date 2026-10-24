@@ -6,7 +6,20 @@ import numpy as np
 import time
 import os
 
+# --- COMPACT UI CSS WITH RESTORED TOP PADDING ---
 st.set_page_config(layout="wide", page_title="Singapore Quali 2026", page_icon="🏎️")
+st.markdown("""
+    <style>
+        .block-container { padding: 3.5rem 2rem 0rem 2rem; max-width: 100%; }
+        div[data-testid="stMetricValue"] { font-size: 1.4rem; padding-bottom: 0; }
+        div[data-testid="stMetricLabel"] { font-size: 0.9rem; }
+        h3 { margin-top: -1rem; margin-bottom: 0rem; }
+        h4 { margin-top: 0rem; margin-bottom: 0.3rem; font-size: 1.1rem; }
+        p { font-size: 0.9rem; line-height: 1.4; margin-bottom: 0; }
+        hr { margin: 0.5rem 0; }
+        div[data-testid="stSlider"] { padding-bottom: 0px; margin-bottom: -10px; }
+    </style>
+""", unsafe_allow_html=True)
 
 os.makedirs('f1_cache', exist_ok=True)
 fastf1.Cache.enable_cache('f1_cache') 
@@ -31,9 +44,8 @@ def load_data():
     ver_speed = np.interp(dist_arr, tel_ver['Distance'], tel_ver['Speed'])
     ver_x = np.interp(dist_arr, tel_ver['Distance'], tel_ver['X'])
     ver_y = np.interp(dist_arr, tel_ver['Distance'], tel_ver['Y'])
-    
     lec_speed = np.interp(dist_arr, tel_lec['Distance'], tel_lec['Speed'])
-
+    
     ver_time_sync = np.interp(dist_arr, tel_ver['Distance'], ver_elapsed)
     lec_time_sync = np.interp(dist_arr, tel_lec['Distance'], lec_elapsed)
 
@@ -44,11 +56,8 @@ def load_data():
     lec_time_sync = lec_time_sync * (91.427 / lec_time_sync[-1])
 
     delta = ver_time_sync - lec_time_sync
-
-    # TRUE GHOST CAR: Calculate Leclerc's distance at VER's live time 
     lec_dist_at_ver_time = np.interp(ver_time_sync, lec_time_sync, dist_arr)
     
-    # Project Leclerc onto VER's GPS line to eliminate sensor drift illusions
     map_lec_x = np.interp(lec_dist_at_ver_time, dist_arr, ver_x)
     map_lec_y = np.interp(lec_dist_at_ver_time, dist_arr, ver_y)
 
@@ -64,7 +73,6 @@ def load_data():
         'LEC_Time': lec_time_sync,
         'Delta': delta
     })
-    
     return df, max_dist
 
 try:
@@ -73,35 +81,57 @@ except Exception as e:
     st.error(f"Error loading data: {e}")
     st.stop()
 
+def fmt_time(seconds):
+    if pd.isna(seconds):
+        return "0.000s"
+    m = int(seconds // 60)
+    s = seconds % 60
+    if m > 0:
+        return f"{m}:{s:06.3f}"
+    return f"{s:.3f}s"
+
 def get_commentary(dist):
-    if dist < 500:
-        return "### The Start\nBoth drivers launch into Turn 1. Watch how they drag race down the pit straight."
-    elif 1000 <= dist < 2000:
-        return "### Sector 1: The Braking Zones\nLeclerc brakes slightly later into the heavy traction zones, trusting the front end of his Ferrari to rotate."
-    elif 3000 <= dist < 4000:
-        return "### Sector 2: The Twisty Stuff\nThrough the Marina Bay street circuit complexes, see how their speed traces cross as they take different racing lines."
-    elif 4500 <= dist <= track_length - 50:
-        return "### Turn 18: The 0.054s Decider\nVerstappen wins pole here. He carries ~4km/h more apex speed and gets on the throttle earlier, erasing Leclerc's advantage."
+    if dist < 800:
+        return "#### 🚦 Turns 1-3\n**VER S1: 27.002s | LEC S1: 27.025s**<br>Verstappen maximizes entry speed into T1, squaring off T3 perfectly to carry momentum down the straight. He takes an early 0.023s lead."
+    elif dist < 1600:
+        return "#### 🛑 Turn 7 Braking\nApproaching Memorial corner, Leclerc brakes marginally later. The Ferrari's front-end compliance allows him to rotate sharply without locking up, clawing back time."
+    elif dist < 2400:
+        return "#### 🐍 Turns 8-12\n**VER S2: 38.531s | LEC S2: 38.401s**<br>Leclerc dominates the twisting mid-lap. Ferrari's superior mechanical grip pulls 0.130s faster than the Red Bull, giving Charles the overall lap lead."
+    elif dist < 3200:
+        return "#### 🪝 The Hairpin (T13)\nLeclerc uses a slight V-style line, rotating the car instantly at the apex to get on the throttle earlier for the vital bridge crossing."
+    elif dist < 4200:
+        return "#### 💨 Sector 3 Sweepers\n**VER S3: 25.840s | LEC S3: 26.001s**<br>Verstappen begins his comeback. The Red Bull's aero balance shines through the high-speed Esplanade sweepers, keeping minimum speed extremely high."
+    elif dist < 4800:
+        return "#### 🎯 Turn 18 (The Decider)\nDown by a tenth, Verstappen carries incredible apex speed through T18. He gets to 100% throttle a fraction of a second earlier than Leclerc, erasing the Ferrari's advantage."
     else:
-        return "### Finish Line\nLap completed."
+        return "#### 🏁 Finish Line\n**Pole Margin: 0.054s**<br>Leclerc's phenomenal Sector 2 wasn't quite enough. Verstappen's flawless bookend sectors snatched pole by a microscopic margin."
 
 if 'dist' not in st.session_state:
     st.session_state.dist = 0.0
 if 'playing' not in st.session_state:
     st.session_state.playing = False
 
-st.title("The 0.054s Margin: Verstappen vs Leclerc")
-
-col_btn, col_slider = st.columns([1, 6])
-with col_btn:
-    st.write("")
+# --- HEADER & ENHANCED CHECKPOINT SLIDER ---
+c_head1, c_head2, c_head3 = st.columns([3.5, 1.5, 6])
+with c_head1:
+    st.markdown("### 2026 Singapore Quali: VER vs LEC")
+with c_head2:
     if st.button("⏯️ Play / Pause", use_container_width=True):
         if st.session_state.dist >= track_length:
             st.session_state.dist = 0.0
         st.session_state.playing = not st.session_state.playing
-
-with col_slider:
-    selected_dist = st.slider("Scrub Lap Distance", 0.0, track_length, float(st.session_state.dist), label_visibility="collapsed")
+with c_head3:
+    # Formatted the slider value to show meters explicitly
+    selected_dist = st.slider("Distance", 0.0, track_length, float(st.session_state.dist), format="%.0fm", label_visibility="collapsed")
+    
+    st.markdown("""
+        <div style="display: flex; justify-content: space-between; width: 100%; font-size: 0.75rem; color: #a1a1aa; padding: 0 5px; margin-top: -5px;">
+            <span style="width: 30%;">Start (0m)</span>
+            <span style="width: 36%;">Sector 1 (1500m)</span>
+            <span style="width: 34%;">Sector 2 (3300m)</span>
+            <span style="text-align: right;">Finish</span>
+        </div>
+    """, unsafe_allow_html=True)
 
 if selected_dist != float(st.session_state.dist) and not st.session_state.playing:
     st.session_state.dist = selected_dist
@@ -109,66 +139,54 @@ if selected_dist != float(st.session_state.dist) and not st.session_state.playin
 idx = (np.abs(df['Distance'] - st.session_state.dist)).argmin()
 row = df.iloc[idx]
 current_dist = row['Distance']
+st.divider()
 
-col1, col2 = st.columns([1, 1])
+col_track, col_comm, col_tel = st.columns([3.5, 2.5, 4])
 
-with col1:
-    st.subheader("Track Position")
+with col_track:
     fig_track = go.Figure()
+    fig_track.add_trace(go.Scatter(x=df['VER_X'], y=df['VER_Y'], mode='lines', line=dict(color='rgba(255,255,255,0.2)', width=3), hoverinfo='none'))
+    fig_track.add_trace(go.Scatter(x=[row['VER_X']], y=[row['VER_Y']], mode='markers', marker=dict(color='#0600ef', size=8, line=dict(color='white', width=1)), name='VER'))
+    fig_track.add_trace(go.Scatter(x=[row['MAP_LEC_X']], y=[row['MAP_LEC_Y']], mode='markers', marker=dict(color='#dc0000', size=8, line=dict(color='white', width=1)), name='LEC'))
     
-    fig_track.add_trace(go.Scatter(x=df['VER_X'], y=df['VER_Y'], 
-                                   mode='lines', line=dict(color='rgba(255,255,255,0.2)', width=3), 
-                                   hoverinfo='none'))
-    
-    fig_track.add_trace(go.Scatter(x=[row['VER_X']], y=[row['VER_Y']],
-                                   mode='markers', marker=dict(color='#0600ef', size=7, line=dict(color='white', width=1)),
-                                   name='Verstappen'))
-    
-    fig_track.add_trace(go.Scatter(x=[row['MAP_LEC_X']], y=[row['MAP_LEC_Y']],
-                                   mode='markers', marker=dict(color='#dc0000', size=7, line=dict(color='white', width=1)),
-                                   name='Leclerc'))
-    
-    fig_track.update_layout(plot_bgcolor='rgb(14,17,23)', paper_bgcolor='rgb(14,17,23)',
-                            font=dict(color='white'), showlegend=True,
+    fig_track.update_layout(plot_bgcolor='rgb(14,17,23)', paper_bgcolor='rgb(14,17,23)', showlegend=False,
                             xaxis=dict(visible=False), yaxis=dict(visible=False, scaleanchor="x", scaleratio=1),
-                            margin=dict(l=0, r=0, t=30, b=0), height=500, uirevision='constant')
-    
+                            margin=dict(l=0, r=0, t=0, b=0), height=380, uirevision='constant')
     st.plotly_chart(fig_track, use_container_width=True)
 
-with col2:
-    st.subheader("Speed Telemetry (km/h)")
+with col_comm:
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown(get_commentary(current_dist), unsafe_allow_html=True)
+
+with col_tel:
     fig_speed = go.Figure()
     
-    fig_speed.add_trace(go.Scatter(x=df['Distance'], y=df['VER_Speed'],
-                                   mode='lines', line=dict(color='#0600ef', width=2), name='VER'))
+    fig_speed.add_vrect(x0=0, x1=1500, fillcolor="white", opacity=0.02, layer="below", line_width=0)
+    fig_speed.add_vrect(x0=1500, x1=3300, fillcolor="white", opacity=0.06, layer="below", line_width=0)
+    fig_speed.add_vrect(x0=3300, x1=track_length, fillcolor="white", opacity=0.02, layer="below", line_width=0)
     
-    fig_speed.add_trace(go.Scatter(x=df['Distance'], y=df['LEC_Speed'],
-                                   mode='lines', line=dict(color='#dc0000', width=2), name='LEC'))
-    
+    fig_speed.add_annotation(x=750, y=0.05, yref="paper", text="S1", showarrow=False, font=dict(color="rgba(255,255,255,0.3)", size=12))
+    fig_speed.add_annotation(x=2400, y=0.05, yref="paper", text="S2", showarrow=False, font=dict(color="rgba(255,255,255,0.3)", size=12))
+    fig_speed.add_annotation(x=4100, y=0.05, yref="paper", text="S3", showarrow=False, font=dict(color="rgba(255,255,255,0.3)", size=12))
+
+    fig_speed.add_trace(go.Scatter(x=df['Distance'], y=df['VER_Speed'], mode='lines', line=dict(color='#0600ef', width=2), name='VER'))
+    fig_speed.add_trace(go.Scatter(x=df['Distance'], y=df['LEC_Speed'], mode='lines', line=dict(color='#dc0000', width=2), name='LEC'))
     fig_speed.add_vline(x=current_dist, line_width=2, line_dash="dash", line_color="white")
     
-    fig_speed.update_layout(plot_bgcolor='rgb(14,17,23)', paper_bgcolor='rgb(14,17,23)',
-                            font=dict(color='white'), hovermode="x unified",
-                            xaxis=dict(title="Distance (m)", gridcolor='rgba(255,255,255,0.1)'),
-                            yaxis=dict(title="Speed (km/h)", gridcolor='rgba(255,255,255,0.1)'),
-                            margin=dict(l=0, r=0, t=30, b=0), height=300, uirevision='constant')
-    
+    fig_speed.update_layout(plot_bgcolor='rgb(14,17,23)', paper_bgcolor='rgb(14,17,23)', font=dict(color='white'), hovermode="x unified",
+                            legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, bgcolor='rgba(0,0,0,0)'),
+                            xaxis=dict(title="Distance (m)", gridcolor='rgba(255,255,255,0.1)'), yaxis=dict(title="Speed (km/h)", gridcolor='rgba(255,255,255,0.1)'),
+                            margin=dict(l=0, r=0, t=0, b=0), height=240, uirevision='constant')
     st.plotly_chart(fig_speed, use_container_width=True)
 
-    st.markdown("### Metrics")
-    c1, c2, c3 = st.columns(3)
-    c1.metric("VER Speed", f"{int(row['VER_Speed'])} km/h")
-    c2.metric("LEC Speed", f"{int(row['LEC_Speed'])} km/h")
-    c3.metric("Gap (VER - LEC)", f"{row['Delta']:+.3f}s", delta_color="inverse")
+    m1, m2, m3 = st.columns(3)
+    m1.metric("VER Speed", f"{int(row['VER_Speed'])} km/h")
+    m2.metric("LEC Speed", f"{int(row['LEC_Speed'])} km/h")
+    m3.metric("Gap (VER - LEC)", f"{row['Delta']:+.3f}s", delta_color="inverse")
 
-    c4, c5, c6 = st.columns(3)
-    c4.metric("VER Live Time", f"{row['VER_Time']:.3f}s")
-    c5.metric("LEC Live Time", f"{row['LEC_Time']:.3f}s")
-
-st.markdown(get_commentary(current_dist))
-
-if current_dist >= track_length - 0.1:
-    st.success("🏁 **Lap Summary:** While Leclerc was faster through the heavy braking zones of Sectors 1 and 2, Verstappen's execution of Turn 18 was decisive. Carrying roughly 4km/h more speed through the apex allowed Max to get to 100% throttle earlier. Down the final straight, that momentum translated directly into the 54 thousandths of a second that secured pole position.")
+    m4, m5, m6 = st.columns(3)
+    m4.metric("VER Live Time", fmt_time(row['VER_Time']))
+    m5.metric("LEC Live Time", fmt_time(row['LEC_Time']))
 
 if st.session_state.playing:
     time.sleep(0.05) 
