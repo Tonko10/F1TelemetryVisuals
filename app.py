@@ -6,7 +6,6 @@ import numpy as np
 import time
 import os
 
-# --- COMPACT UI CSS WITH RESTORED TOP PADDING ---
 st.set_page_config(layout="wide", page_title="Singapore Quali 2026", page_icon="🏎️")
 st.markdown("""
     <style>
@@ -23,6 +22,9 @@ st.markdown("""
 
 os.makedirs('f1_cache', exist_ok=True)
 fastf1.Cache.enable_cache('f1_cache') 
+
+VER_COLOR = '#0600ef'
+LEC_COLOR = '#dc0000'
 
 @st.cache_data
 def load_data():
@@ -111,7 +113,6 @@ if 'dist' not in st.session_state:
 if 'playing' not in st.session_state:
     st.session_state.playing = False
 
-# --- HEADER & ENHANCED CHECKPOINT SLIDER ---
 c_head1, c_head2, c_head3 = st.columns([3.5, 1.5, 6])
 with c_head1:
     st.markdown("### 2026 Singapore Quali: VER vs LEC")
@@ -121,9 +122,7 @@ with c_head2:
             st.session_state.dist = 0.0
         st.session_state.playing = not st.session_state.playing
 with c_head3:
-    # Formatted the slider value to show meters explicitly
     selected_dist = st.slider("Distance", 0.0, track_length, float(st.session_state.dist), format="%.0fm", label_visibility="collapsed")
-    
     st.markdown("""
         <div style="display: flex; justify-content: space-between; width: 100%; font-size: 0.75rem; color: #a1a1aa; padding: 0 5px; margin-top: -5px;">
             <span style="width: 30%;">Start (0m)</span>
@@ -144,15 +143,55 @@ st.divider()
 col_track, col_comm, col_tel = st.columns([3.5, 2.5, 4])
 
 with col_track:
+    st.markdown("#### 📍 Position &nbsp;&nbsp; 🔵 **VER** &nbsp;|&nbsp; 🔴 **LEC**", unsafe_allow_html=True)
     fig_track = go.Figure()
-    fig_track.add_trace(go.Scatter(x=df['VER_X'], y=df['VER_Y'], mode='lines', line=dict(color='rgba(255,255,255,0.2)', width=3), hoverinfo='none'))
-    fig_track.add_trace(go.Scatter(x=[row['VER_X']], y=[row['VER_Y']], mode='markers', marker=dict(color='#0600ef', size=8, line=dict(color='white', width=1)), name='VER'))
-    fig_track.add_trace(go.Scatter(x=[row['MAP_LEC_X']], y=[row['MAP_LEC_Y']], mode='markers', marker=dict(color='#dc0000', size=8, line=dict(color='white', width=1)), name='LEC'))
+    fig_track.add_trace(go.Scatter(x=df['VER_X'], y=df['VER_Y'], mode='lines', line=dict(color='rgba(255,255,255,0.1)', width=3), hoverinfo='none'))
+    
+    # PERFORMANCE FIX: Sub-sample history payload by factor of 6 to stop glitching
+    df_hist = df[df['Distance'] <= current_dist].iloc[::6]
+    if not df_hist.empty:
+        trail_colors = np.where(df_hist['Delta'] < 0, VER_COLOR, LEC_COLOR)
+        fig_track.add_trace(go.Scatter(x=df_hist['VER_X'], y=df_hist['VER_Y'], mode='markers', marker=dict(color=trail_colors, size=4), hoverinfo='none'))
+    
+    turn_marks = {
+        300: "1", 370: "2", 450: "3", 800: "4", 900: "5", 1100: "6", 1550: "7", 
+        1800: "8", 1900: "9", 2000: "10", 2100: "11", 2250: "12", 2950: "13", 
+        3100: "14", 3600: "15", 4200: "16", 4300: "17", 4550: "18", 4700: "19"
+    }
+    t_x, t_y, t_text = [], [], []
+    for d, t in turn_marks.items():
+        if d < track_length:
+            t_idx = (np.abs(df['Distance'] - d)).argmin()
+            t_x.append(df['VER_X'].iloc[t_idx])
+            t_y.append(df['VER_Y'].iloc[t_idx])
+            t_text.append(t)
+        
+    fig_track.add_trace(go.Scatter(x=t_x, y=t_y, mode='text', text=t_text, textposition="middle center", textfont=dict(color="rgba(255,255,255,0.7)", size=10), showlegend=False))
+    
+    fig_track.add_trace(go.Scatter(x=[row['VER_X']], y=[row['VER_Y']], mode='markers', marker=dict(color=VER_COLOR, size=9, line=dict(color='white', width=1)), name='VER'))
+    fig_track.add_trace(go.Scatter(x=[row['MAP_LEC_X']], y=[row['MAP_LEC_Y']], mode='markers', marker=dict(color=LEC_COLOR, size=9, line=dict(color='white', width=1)), name='LEC'))
     
     fig_track.update_layout(plot_bgcolor='rgb(14,17,23)', paper_bgcolor='rgb(14,17,23)', showlegend=False,
                             xaxis=dict(visible=False), yaxis=dict(visible=False, scaleanchor="x", scaleratio=1),
-                            margin=dict(l=0, r=0, t=0, b=0), height=380, uirevision='constant')
+                            margin=dict(l=0, r=0, t=0, b=5), height=230, uirevision='constant')
     st.plotly_chart(fig_track, use_container_width=True)
+
+    zoom_radius = 250
+    fig_zoom = go.Figure()
+    fig_zoom.add_trace(go.Scatter(x=df['VER_X'], y=df['VER_Y'], mode='lines', line=dict(color='rgba(255,255,255,0.2)', width=5), hoverinfo='none'))
+    
+    if not df_hist.empty:
+        fig_zoom.add_trace(go.Scatter(x=df_hist['VER_X'], y=df_hist['VER_Y'], mode='markers', marker=dict(color=trail_colors, size=6), hoverinfo='none'))
+
+    fig_zoom.add_trace(go.Scatter(x=[row['VER_X']], y=[row['VER_Y']], mode='markers', marker=dict(color=VER_COLOR, size=14, line=dict(color='white', width=2)), name='VER'))
+    fig_zoom.add_trace(go.Scatter(x=[row['MAP_LEC_X']], y=[row['MAP_LEC_Y']], mode='markers', marker=dict(color=LEC_COLOR, size=14, line=dict(color='white', width=2)), name='LEC'))
+    
+    fig_zoom.update_layout(plot_bgcolor='rgb(14,17,23)', paper_bgcolor='rgb(14,17,23)', showlegend=False,
+                           xaxis=dict(visible=False, range=[row['VER_X'] - zoom_radius, row['VER_X'] + zoom_radius]), 
+                           yaxis=dict(visible=False, range=[row['VER_Y'] - zoom_radius, row['VER_Y'] + zoom_radius]),
+                           margin=dict(l=0, r=0, t=0, b=0), height=140,
+                           title=dict(text="🔍 Pursuit Camera", font=dict(color="rgba(255,255,255,0.4)", size=11), y=0.9, x=0.02))
+    st.plotly_chart(fig_zoom, use_container_width=True)
 
 with col_comm:
     st.markdown("<br>", unsafe_allow_html=True)
@@ -160,7 +199,6 @@ with col_comm:
 
 with col_tel:
     fig_speed = go.Figure()
-    
     fig_speed.add_vrect(x0=0, x1=1500, fillcolor="white", opacity=0.02, layer="below", line_width=0)
     fig_speed.add_vrect(x0=1500, x1=3300, fillcolor="white", opacity=0.06, layer="below", line_width=0)
     fig_speed.add_vrect(x0=3300, x1=track_length, fillcolor="white", opacity=0.02, layer="below", line_width=0)
@@ -169,8 +207,8 @@ with col_tel:
     fig_speed.add_annotation(x=2400, y=0.05, yref="paper", text="S2", showarrow=False, font=dict(color="rgba(255,255,255,0.3)", size=12))
     fig_speed.add_annotation(x=4100, y=0.05, yref="paper", text="S3", showarrow=False, font=dict(color="rgba(255,255,255,0.3)", size=12))
 
-    fig_speed.add_trace(go.Scatter(x=df['Distance'], y=df['VER_Speed'], mode='lines', line=dict(color='#0600ef', width=2), name='VER'))
-    fig_speed.add_trace(go.Scatter(x=df['Distance'], y=df['LEC_Speed'], mode='lines', line=dict(color='#dc0000', width=2), name='LEC'))
+    fig_speed.add_trace(go.Scatter(x=df['Distance'], y=df['VER_Speed'], mode='lines', line=dict(color=VER_COLOR, width=2), name='VER'))
+    fig_speed.add_trace(go.Scatter(x=df['Distance'], y=df['LEC_Speed'], mode='lines', line=dict(color=LEC_COLOR, width=2), name='LEC'))
     fig_speed.add_vline(x=current_dist, line_width=2, line_dash="dash", line_color="white")
     
     fig_speed.update_layout(plot_bgcolor='rgb(14,17,23)', paper_bgcolor='rgb(14,17,23)', font=dict(color='white'), hovermode="x unified",
