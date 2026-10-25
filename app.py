@@ -106,7 +106,7 @@ def get_commentary(dist):
     elif dist < 4800:
         return "#### Sector 3: The Turn 18 Decider\nStill trailing by a fraction, Verstappen produces a masterclass through the off-camber Turn 18. Carrying incredible apex speed, he manages to reach 100% throttle earlier than Leclerc, catapulting his car out of the corner."
     else:
-        return "#### Finish Line: The 0.054s Margin\n**VER: 1:31.373 | LEC: 1:31.427**<br>Leclerc’s phenomenal middle sector wasn't quite enough. Verstappen secures the 2026 Singapore Grand Prix pole position with a 1:31.373, edging out Leclerc by a mere 0.054s[cite: 3, 4]."
+        return "#### Finish Line: The 0.054s Margin\n**VER: 1:31.373 | LEC: 1:31.427**<br>Leclerc’s phenomenal middle sector wasn't quite enough. Verstappen secures the 2026 Singapore Grand Prix pole position with a 1:31.373, edging out Leclerc by a mere 0.054s."
 
 if 'dist' not in st.session_state:
     st.session_state.dist = 0.0
@@ -147,7 +147,6 @@ with col_track:
     fig_track = go.Figure()
     fig_track.add_trace(go.Scatter(x=df['VER_X'], y=df['VER_Y'], mode='lines', line=dict(color='rgba(255,255,255,0.1)', width=3), hoverinfo='none'))
     
-    # PERFORMANCE FIX: Sub-sample history payload by factor of 6 to stop glitching
     df_hist = df[df['Distance'] <= current_dist].iloc[::6]
     if not df_hist.empty:
         trail_colors = np.where(df_hist['Delta'] < 0, VER_COLOR, LEC_COLOR)
@@ -211,13 +210,20 @@ with col_tel:
 
     fig_speed.add_trace(go.Scatter(x=df['Distance'], y=df['VER_Speed'], mode='lines', line=dict(color=VER_COLOR, width=2), name='VER'))
     fig_speed.add_trace(go.Scatter(x=df['Distance'], y=df['LEC_Speed'], mode='lines', line=dict(color=LEC_COLOR, width=2), name='LEC'))
-    fig_speed.add_vline(x=current_dist, line_width=2, line_dash="dash", line_color="white")
     
     fig_speed.update_layout(plot_bgcolor='rgb(14,17,23)', paper_bgcolor='rgb(14,17,23)', font=dict(color='white'), hovermode="x unified",
                             legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, bgcolor='rgba(0,0,0,0)'),
-                            xaxis=dict(title="Distance (m)", gridcolor='rgba(255,255,255,0.1)'), yaxis=dict(title="Speed (km/h)", gridcolor='rgba(255,255,255,0.1)'),
-                            margin=dict(l=0, r=0, t=0, b=0), height=240, uirevision='constant')
+                            xaxis=dict(title="Distance (m)", gridcolor='rgba(255,255,255,0.1)', range=[0, track_length]), 
+                            yaxis=dict(title="Speed (km/h)", gridcolor='rgba(255,255,255,0.1)'),
+                            margin=dict(l=60, r=20, t=10, b=40), height=250, uirevision='constant')
     st.plotly_chart(fig_speed, use_container_width=True)
+
+    pct_pos = (current_dist / track_length) * 100
+    st.markdown(f"""
+        <div style="position: relative; top: -268px; left: 60px; width: calc(100% - 80px); height: 0px; pointer-events: none; z-index: 10;">
+            <div style="position: absolute; left: {pct_pos}%; top: 0; width: 0px; height: 200px; border-left: 2px dashed white;"></div>
+        </div>
+    """, unsafe_allow_html=True)
 
     speed_html = f"""
     <div style="display: flex; justify-content: space-evenly; text-align: center; margin-top: 15px;">
