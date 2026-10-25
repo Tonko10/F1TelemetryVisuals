@@ -93,20 +93,20 @@ def fmt_time(seconds):
     return f"{s:.3f}s"
 
 def get_commentary(dist):
-    if dist < 800:
-        return "#### 🚦 Turns 1-3\n**VER S1: 27.002s | LEC S1: 27.025s**<br>Verstappen maximizes entry speed into T1, squaring off T3 perfectly to carry momentum down the straight. He takes an early 0.023s lead."
-    elif dist < 1600:
-        return "#### 🛑 Turn 7 Braking\nApproaching Memorial corner, Leclerc brakes marginally later. The Ferrari's front-end compliance allows him to rotate sharply without locking up, clawing back time."
+    if dist < 750:
+        return "#### Sector 1: The Launch & Turns 1-3\nVerstappen attacks the opening left-right-left sequence with maximum commitment. Red Bull's stable front end allows him to square off Turn 3 perfectly, prioritizing exit speed down the following straight to take an early micro-advantage."
+    elif dist < 1500:
+        return "#### Sector 1: Turns 4-6\nApproaching Turn 5, Leclerc leans heavily on the Ferrari's mechanical grip. He opens up the steering early, utilizing his power unit's aggressive low-end deployment to slowly start reeling in Verstappen as they cross the first sector timing line."
     elif dist < 2400:
-        return "#### 🐍 Turns 8-12\n**VER S2: 38.531s | LEC S2: 38.401s**<br>Leclerc dominates the twisting mid-lap. Ferrari's superior mechanical grip pulls 0.130s faster than the Red Bull, giving Charles the overall lap lead."
-    elif dist < 3200:
-        return "#### 🪝 The Hairpin (T13)\nLeclerc uses a slight V-style line, rotating the car instantly at the apex to get on the throttle earlier for the vital bridge crossing."
-    elif dist < 4200:
-        return "#### 💨 Sector 3 Sweepers\n**VER S3: 25.840s | LEC S3: 26.001s**<br>Verstappen begins his comeback. The Red Bull's aero balance shines through the high-speed Esplanade sweepers, keeping minimum speed extremely high."
+        return "#### Sector 2: Memorial Corner (T7)\nThis is where the lap flips. Hurtling into the heavy braking zone of Turn 7, Leclerc brakes several meters later than the Red Bull. The Ferrari rotates sharply without locking the fronts, allowing Charles to level the overall lap time."
+    elif dist < 3300:
+        return "#### Sector 2: The Anderson Bridge Hairpin\nThrough the claustrophobic 90-degree street corners, Leclerc edges the lead. At the Turn 13 hairpin, he executes a pronounced V-style racing line - rotating the car instantly at the apex to get on the throttle earlier for the critical bridge crossing."
+    elif dist < 4100:
+        return "#### Sector 3: Esplanade\nVerstappen begins his comeback. The Red Bull's aerodynamic balance comes alive through the high-speed sequence of Turns 14 and 15. Max keeps a much flatter, more aggressive throttle trace, preserving crucial momentum."
     elif dist < 4800:
-        return "#### 🎯 Turn 18 (The Decider)\nDown by a tenth, Verstappen carries incredible apex speed through T18. He gets to 100% throttle a fraction of a second earlier than Leclerc, erasing the Ferrari's advantage."
+        return "#### Sector 3: The Turn 18 Decider\nStill trailing by a fraction, Verstappen produces a masterclass through the off-camber Turn 18. Carrying incredible apex speed, he manages to reach 100% throttle earlier than Leclerc, catapulting his car out of the corner."
     else:
-        return "#### 🏁 Finish Line\n**Pole Margin: 0.054s**<br>Leclerc's phenomenal Sector 2 wasn't quite enough. Verstappen's flawless bookend sectors snatched pole by a microscopic margin."
+        return "#### Finish Line: The 0.054s Margin\n**VER: 1:31.373 | LEC: 1:31.427**<br>Leclerc’s phenomenal middle sector wasn't quite enough. Verstappen secures the 2026 Singapore Grand Prix pole position with a 1:31.373, edging out Leclerc by a mere 0.054s[cite: 3, 4]."
 
 if 'dist' not in st.session_state:
     st.session_state.dist = 0.0
@@ -117,7 +117,7 @@ c_head1, c_head2, c_head3 = st.columns([3.5, 1.5, 6])
 with c_head1:
     st.markdown("### 2026 Singapore Quali: VER vs LEC")
 with c_head2:
-    if st.button("⏯️ Play / Pause", use_container_width=True):
+    if st.button("Play / Pause", use_container_width=True):
         if st.session_state.dist >= track_length:
             st.session_state.dist = 0.0
         st.session_state.playing = not st.session_state.playing
@@ -143,7 +143,7 @@ st.divider()
 col_track, col_comm, col_tel = st.columns([3.5, 2.5, 4])
 
 with col_track:
-    st.markdown("#### 📍 Position &nbsp;&nbsp; 🔵 **VER** &nbsp;|&nbsp; 🔴 **LEC**", unsafe_allow_html=True)
+    st.markdown("#### &nbsp;&nbsp; 🔵 **VER** &nbsp;|&nbsp; 🔴 **LEC**", unsafe_allow_html=True)
     fig_track = go.Figure()
     fig_track.add_trace(go.Scatter(x=df['VER_X'], y=df['VER_Y'], mode='lines', line=dict(color='rgba(255,255,255,0.1)', width=3), hoverinfo='none'))
     
@@ -152,21 +152,6 @@ with col_track:
     if not df_hist.empty:
         trail_colors = np.where(df_hist['Delta'] < 0, VER_COLOR, LEC_COLOR)
         fig_track.add_trace(go.Scatter(x=df_hist['VER_X'], y=df_hist['VER_Y'], mode='markers', marker=dict(color=trail_colors, size=4), hoverinfo='none'))
-    
-    turn_marks = {
-        300: "1", 370: "2", 450: "3", 800: "4", 900: "5", 1100: "6", 1550: "7", 
-        1800: "8", 1900: "9", 2000: "10", 2100: "11", 2250: "12", 2950: "13", 
-        3100: "14", 3600: "15", 4200: "16", 4300: "17", 4550: "18", 4700: "19"
-    }
-    t_x, t_y, t_text = [], [], []
-    for d, t in turn_marks.items():
-        if d < track_length:
-            t_idx = (np.abs(df['Distance'] - d)).argmin()
-            t_x.append(df['VER_X'].iloc[t_idx])
-            t_y.append(df['VER_Y'].iloc[t_idx])
-            t_text.append(t)
-        
-    fig_track.add_trace(go.Scatter(x=t_x, y=t_y, mode='text', text=t_text, textposition="middle center", textfont=dict(color="rgba(255,255,255,0.7)", size=10), showlegend=False))
     
     fig_track.add_trace(go.Scatter(x=[row['VER_X']], y=[row['VER_Y']], mode='markers', marker=dict(color=VER_COLOR, size=9, line=dict(color='white', width=1)), name='VER'))
     fig_track.add_trace(go.Scatter(x=[row['MAP_LEC_X']], y=[row['MAP_LEC_Y']], mode='markers', marker=dict(color=LEC_COLOR, size=9, line=dict(color='white', width=1)), name='LEC'))
@@ -190,12 +175,29 @@ with col_track:
                            xaxis=dict(visible=False, range=[row['VER_X'] - zoom_radius, row['VER_X'] + zoom_radius]), 
                            yaxis=dict(visible=False, range=[row['VER_Y'] - zoom_radius, row['VER_Y'] + zoom_radius]),
                            margin=dict(l=0, r=0, t=0, b=0), height=140,
-                           title=dict(text="🔍 Pursuit Camera", font=dict(color="rgba(255,255,255,0.4)", size=11), y=0.9, x=0.02))
+                           title=dict(text="Pursuit Camera", font=dict(color="rgba(255,255,255,0.4)", size=11), y=0.9, x=0.02))
     st.plotly_chart(fig_zoom, use_container_width=True)
 
 with col_comm:
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(get_commentary(current_dist), unsafe_allow_html=True)
+    
+    gap_val = row['Delta']
+    gap_color = VER_COLOR if gap_val < 0 else (LEC_COLOR if gap_val > 0 else "white")
+    
+    metrics_html = f"""
+    <div style="margin-top: 25px; padding: 15px; background: rgba(255,255,255,0.03); border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);">
+        <div style="display: flex; justify-content: space-around; margin-bottom: 15px; font-size: 1.4rem;">
+            <div style="color: {VER_COLOR}; font-weight: bold;">VER: <span style="color: white; font-weight: normal;">{fmt_time(row['VER_Time'])}</span></div>
+            <div style="color: {LEC_COLOR}; font-weight: bold;">LEC: <span style="color: white; font-weight: normal;">{fmt_time(row['LEC_Time'])}</span></div>
+        </div>
+        <div style="text-align: center;">
+            <span style="font-size: 0.9rem; color: #a1a1aa; text-transform: uppercase; letter-spacing: 1px;">Gap (VER - LEC)</span><br>
+            <span style="font-size: 2.2rem; font-weight: bold; color: {gap_color};">{gap_val:+.3f}s</span>
+        </div>
+    </div>
+    """
+    st.markdown(metrics_html, unsafe_allow_html=True)
 
 with col_tel:
     fig_speed = go.Figure()
@@ -217,14 +219,19 @@ with col_tel:
                             margin=dict(l=0, r=0, t=0, b=0), height=240, uirevision='constant')
     st.plotly_chart(fig_speed, use_container_width=True)
 
-    m1, m2, m3 = st.columns(3)
-    m1.metric("VER Speed", f"{int(row['VER_Speed'])} km/h")
-    m2.metric("LEC Speed", f"{int(row['LEC_Speed'])} km/h")
-    m3.metric("Gap (VER - LEC)", f"{row['Delta']:+.3f}s", delta_color="inverse")
-
-    m4, m5, m6 = st.columns(3)
-    m4.metric("VER Live Time", fmt_time(row['VER_Time']))
-    m5.metric("LEC Live Time", fmt_time(row['LEC_Time']))
+    speed_html = f"""
+    <div style="display: flex; justify-content: space-evenly; text-align: center; margin-top: 15px;">
+        <div>
+            <span style="font-size: 0.9rem; color: #a1a1aa; text-transform: uppercase; letter-spacing: 1px;">VER Speed</span><br>
+            <span style="font-size: 1.8rem; font-weight: bold; color: {VER_COLOR};">{int(row['VER_Speed'])} <span style="font-size: 1.2rem; color: white;">km/h</span></span>
+        </div>
+        <div>
+            <span style="font-size: 0.9rem; color: #a1a1aa; text-transform: uppercase; letter-spacing: 1px;">LEC Speed</span><br>
+            <span style="font-size: 1.8rem; font-weight: bold; color: {LEC_COLOR};">{int(row['LEC_Speed'])} <span style="font-size: 1.2rem; color: white;">km/h</span></span>
+        </div>
+    </div>
+    """
+    st.markdown(speed_html, unsafe_allow_html=True)
 
 if st.session_state.playing:
     time.sleep(0.05) 
